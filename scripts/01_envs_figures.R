@@ -122,7 +122,36 @@ fsize <- 12
 # Plot mean +/- SD  -----------------
 panel_tag_soil <- data.table(Season = c(2024, 2025), Depth = c("20 cm", "20 cm"),
                              label = c("a", "b"))
-soil_temp_sd_p <- soil_temp_ts[Depth != "40 cm"] |>
+# calculate mean and sd time series by Treatment/Depth/Season
+# !!!!! PlotID 8 in season2025 had a defected cable
+soil_temp_ts <- soil_temperature_daily[, .(
+  mean_temp = mean(mean_temp, na.rm = TRUE),
+  sd_temp = sd(mean_temp, na.rm = TRUE)
+), by = .(Season, Depth, Treatment, Date, DAP)
+][order(Season, Depth, Treatment, Date, DAP)]
+
+# 2-day moving average for mean and upper/lower bounds
+soil_temp_ts[, `:=`(
+  mean_ma = frollmean(mean_temp, n = 2, align = "right"),
+  upper_ma = frollmean(mean_temp + sd_temp, n = 2, align = "right"),
+  lower_ma = frollmean(mean_temp - sd_temp, n = 2, align = "right")
+), by = .(Season, Depth, Treatment)]
+soil_temp_ts[, Depth := paste0(Depth, " cm")]
+fsize <- 12
+# Plot mean +/- SD  -----------------
+panel_tag_soil <- data.table(Season = c(2024, 2025), Depth = c("20 cm", "20 cm"),
+                             label = c("a", "b"))
+# Keep AC over the whole season; keep each heated treatment only inside its own
+# heating window
+soil_temp_20 <- soil_temp_ts[Depth != "40 cm"]
+soil_temp_sd_dt <- rbind(
+  soil_temp_20[Treatment == "AC"],
+  soil_temp_20[treatment_rect_dt, on = .(Season, Treatment), nomatch = NULL
+               ][DAP >= DAP_min - 2 & DAP <= DAP_max + 2
+                 ][, c("DAP_min", "DAP_max") := NULL]
+)
+# figure for the paper
+soil_temp_sd_p <- soil_temp_sd_dt |>
   ggplot(aes(DAP, mean_temp)) +
   geom_rect(
     data = treatment_rect_dt,
@@ -164,7 +193,6 @@ soil_temp_sd_p <- soil_temp_ts[Depth != "40 cm"] |>
       legend.title = element_text(margin = margin(r = 15))) +
   labs(y = "Soil temperature (°C)", x = "Days after planting")
 soil_temp_sd_p
-
 # canopy temperature as a verification of non stressed canopy -------------
 canopy_temp <- fread("data/canopy_temperature.csv")
 flightime <- fread("data/flightime.csv")
