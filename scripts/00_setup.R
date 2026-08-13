@@ -84,7 +84,7 @@ som_sampling <- data.table(Harvest = 1:4,
                            Date = as.Date(c("2025-07-02", "2025-07-14",
                                             "2025-07-29", "2025-08-11")))
 # Treatment windows in DAP, recoded to the same treatment names used in the canopy plot
-treatment_rect_dt <- copy(treatments_DAP_arrows)
+treatment_rect_dt <- copy(treatments_DAP)
 
 # One start/end DAP window per season and treatment
 treatment_rect_dt <- treatment_rect_dt[

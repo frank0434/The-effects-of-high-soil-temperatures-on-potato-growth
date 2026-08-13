@@ -1,5 +1,6 @@
 source("scripts/00_setup.R")
-# Load weather data 
+source("scripts/functions.R")
+# Load weather data
 
 daily_weather_data <- fread("data/daily_weather.csv")
 # rain  -------------------------------------------------------------------
@@ -15,21 +16,15 @@ p1 <- ggplot(daily_weather_data, aes(x = DAP)) +
     limits = c(0, 40)
   ) +
   scale_x_continuous(expand = c(0,0),limits = c(1,120)) +
-  geom_rect(
-    data = treatment_rect_dt,
-    aes(xmin =  DAP_min, xmax = DAP_max, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15,
-    inherit.aes = FALSE
-  ) +
+  geom_treatment_rect() +
   scale_fill_manual(values = colors_temp, guide = "none") +
   scale_color_manual(values = c("Tmean" = "black", "Tmax" = "black", "Tmin" = "black")) +
   labs(color = "Legend") +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   facet_grid(~Season) +
   theme(# strip.background = element_blank(),
         legend.box.margin = margin(b = -5, unit = "mm"),
         legend.background = element_blank(),
-        panel.grid = element_blank(),
         panel.spacing.x = unit(5, "mm"))
 
 # Radiation plot
@@ -42,15 +37,10 @@ p2 <- ggplot(daily_weather_data, aes(x = DAP, y = IRRAD)) +
     limits = c(0, 35), expand = c(0,0)
   ) + 
   scale_x_continuous(name = "Days After Planting", expand = c(0,0), limits = c(0,120)) +
-  geom_rect(
-    data = treatment_rect_dt,
-    aes(xmin =  DAP_min, xmax = DAP_max, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15,
-    inherit.aes = FALSE) +
+  geom_treatment_rect() +
   scale_fill_manual(values = colors_temp, guide = "none") +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
-  theme(panel.spacing.x = unit(5, "mm"),
-        panel.grid = element_blank())+
+  theme_potato() +
+  theme(panel.spacing.x = unit(5, "mm")) +
   facet_grid(~Season)
 
 weather_plot <- (p1 +
@@ -118,26 +108,6 @@ soil_temp_ts[, `:=`(
   lower_ma = frollmean(mean_temp - sd_temp, n = 2, align = "right")
 ), by = .(Season, Depth, Treatment)]
 soil_temp_ts[, Depth := paste0(Depth, " cm")]
-fsize <- 12
-# Plot mean +/- SD  -----------------
-panel_tag_soil <- data.table(Season = c(2024, 2025), Depth = c("20 cm", "20 cm"),
-                             label = c("a", "b"))
-# calculate mean and sd time series by Treatment/Depth/Season
-# !!!!! PlotID 8 in season2025 had a defected cable
-soil_temp_ts <- soil_temperature_daily[, .(
-  mean_temp = mean(mean_temp, na.rm = TRUE),
-  sd_temp = sd(mean_temp, na.rm = TRUE)
-), by = .(Season, Depth, Treatment, Date, DAP)
-][order(Season, Depth, Treatment, Date, DAP)]
-
-# 2-day moving average for mean and upper/lower bounds
-soil_temp_ts[, `:=`(
-  mean_ma = frollmean(mean_temp, n = 2, align = "right"),
-  upper_ma = frollmean(mean_temp + sd_temp, n = 2, align = "right"),
-  lower_ma = frollmean(mean_temp - sd_temp, n = 2, align = "right")
-), by = .(Season, Depth, Treatment)]
-soil_temp_ts[, Depth := paste0(Depth, " cm")]
-fsize <- 12
 # Plot mean +/- SD  -----------------
 panel_tag_soil <- data.table(Season = c(2024, 2025), Depth = c("20 cm", "20 cm"),
                              label = c("a", "b"))
@@ -153,14 +123,9 @@ soil_temp_sd_dt <- rbind(
 # figure for the paper
 soil_temp_sd_p <- soil_temp_sd_dt |>
   ggplot(aes(DAP, mean_temp)) +
-  geom_rect(
-    data = treatment_rect_dt,
-    aes(xmin =  DAP_min, xmax = DAP_max, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15,
-    inherit.aes = FALSE
-  ) +
+  geom_treatment_rect() +
   geom_hline(yintercept = c(14, 22), color = "#e74c3c")+
-  geom_ribbon(aes(ymin = mean_temp - sd_temp, 
+  geom_ribbon(aes(ymin = mean_temp - sd_temp,
                   ymax = mean_temp + sd_temp,
                   fill = Treatment),
               alpha = 0.5) +
@@ -168,27 +133,15 @@ soil_temp_sd_p <- soil_temp_sd_dt |>
   scale_x_continuous(expand = c(0,0), limits = c(0, 120)) +
   scale_y_continuous(limits = c(10, 35))+
   facet_grid( ~ Season) +
-  scale_linetype_manual(
-    values = linetype_temp,
-    breaks = legend_order
-  ) +
-  scale_color_manual(
-    values = colors_temp,
-    breaks = legend_order
-  ) +
-  scale_fill_manual(
-    values = colors_temp,
-    breaks = legend_order
-  ) +
+  scale_treatment_aes(c("colour", "fill", "linetype"), fill_guide = "legend") +
   geom_text(data = panel_tag_soil,
     aes(x = -Inf, y = Inf, label = label),
     hjust = -0.5,    vjust = 1.3,    size = 5,  inherit.aes = FALSE) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(legend.position = "top",
         panel.spacing.x = unit(5, "mm"),
         # axis.text.x = element_blank(),
         # axis.title.x =  element_blank(),
-        panel.grid = element_blank(),
         legend.key.width = unit(15, "mm"),
       legend.title = element_text(margin = margin(r = 15))) +
   labs(y = "Soil temperature (°C)", x = "Days after planting")
@@ -205,16 +158,11 @@ canopy_temp_sum <- canopy_temp[, .(mean = mean(canopy_temp),
 canopy_temp_sum |>
   ggplot(aes(DAP, mean, color = Treatment)) +
   geom_point(size = ps, alpha = 0.6, position = position_dodge(width = 5)) +
-    geom_rect(
-    data = treatment_rect_dt,
-    aes(xmin =  DAP_min, xmax = DAP_max, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15,
-    inherit.aes = FALSE, show.legend = FALSE
-  ) +
+  geom_treatment_rect() +
   geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 3,
                 position = position_dodge(width = 5)) +
   facet_grid(~Season) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(legend.position = "top",
         strip.background = element_blank()) +
   labs(x = "Days After Planting",
@@ -225,11 +173,8 @@ canopy_temp_sum |>
     limits = c(0, 35),
     expand = c(0, 0)
   ) +
-  scale_shape_manual(values = point_shape, breaks = c("AC", "HE", "HTI", "HB")) +
-  scale_color_manual(values = colors_temp, breaks = c("AC", "HE", "HTI", "HB")) +
-  scale_fill_manual(values = colors_temp, breaks = c("AC", "HE", "HTI", "HB")) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
-  theme(panel.grid = element_blank()) +
+  scale_treatment_aes(c("colour", "fill", "shape")) +
+  theme_potato() +
   labs(x = "Days after planting")
 
 

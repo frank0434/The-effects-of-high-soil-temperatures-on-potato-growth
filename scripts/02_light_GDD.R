@@ -1,20 +1,15 @@
 # ==============================================================================
 # Canopy light interception (fPAR) on a growing-degree-day axis
 #
-# Figures  fig_fPAR_GDD      treatment-level fitted curves, both seasons
-#          figS_LI_GDD_24    per-plot fitted vs observed, 2024
-#          figS_LI_GDD_25    per-plot fitted vs observed, 2025
-#
 # Stats    curve parameters (vmax, t1, tm1, t2, te, delta_t) and total
 #          intercepted radiation: lm(y ~ Block + Treatment) per season,
 #          Type II SS, Tukey-adjusted pairwise contrasts on the emmeans.
 #
 # Inputs   data/LI_cleaned.csv     cleaned per-plot fPAR  
 #          data/daily_weather.csv  daily Tmean and IRRAD
-#
-# Self-contained: reads only the two CSVs above, no {targets} store required.
 # ==============================================================================
-source("scripts/functions.R")   # constants, palettes, curve fitting
+source("scripts/00_setup.R")    # constants, palettes
+source("scripts/functions.R")   # curve fitting, shared plot helpers
 
 # One season, one response: Block as a fixed blocking factor, no interaction.
 # Type II SS because 2025 is unbalanced (one HB plot lost); for the balanced
@@ -235,11 +230,6 @@ li_gdd_summary <- li_gdd_sum[
 
 # ==============================================================================
 # PART 6: fig_fPAR_GDD
-#
-# 2025 t2 arrows mark the onset of canopy decline, one per treatment with a
-# Tukey letter. The head is pinned to the plotted curve — x is the treatment-
-# level fitted t2, y is that curve evaluated there — so only the tail needs
-# setting.
 # ==============================================================================
 t2_letters_25 <- as.data.table(
   multcomp::cld(li_gdd_param_models_25$t2$emmeans, Letters = letters,
@@ -271,11 +261,7 @@ t2_arrows_25[, ':='(
 fig_fPAR_GDD <- LI_gdd_curve_dt |>
   ggplot(aes(cumGDD_DAE, predictions, colour = Treatment)) +
   # heating period rectangles
-  geom_rect(
-    data = rect_gdd,
-    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15, inherit.aes = FALSE
-  ) +
+  geom_treatment_rect(data = rect_gdd, xmin = "xmin", xmax = "xmax") +
   geom_segment(
     data = t2_arrows_25,
     aes(x = x_head, xend = x_tail, y = y_head, yend = y_tail, colour = Treatment),
@@ -306,9 +292,7 @@ fig_fPAR_GDD <- LI_gdd_curve_dt |>
   ) +
   facet_grid(. ~ Season) +
   coord_cartesian(ylim = c(0, 1.1), clip = "off") +
-  scale_color_manual(name = "Treatment", values = colors_temp, breaks = legend_order) +
-  scale_fill_manual(values = colors_temp, breaks = legend_order, guide = "none") +
-  scale_linetype_manual(name = "Treatment", values = linetype_temp, breaks = legend_order) +
+  scale_treatment_aes(c("colour", "fill", "linetype")) +
   scale_x_continuous(
     name   = "Growing degree days from emergence (GDD, Tbase = 2°C)\n(Days after planting)",
     limits = c(0, max_gdd + 50),
@@ -316,13 +300,12 @@ fig_fPAR_GDD <- LI_gdd_curve_dt |>
   ) +
   scale_y_continuous(name = "Fraction of light intercepted",
                      breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(
     legend.position    = "top",
     legend.key.size    = unit(15, "mm"),
     legend.background  = element_blank(),
     legend.title       = element_text(margin = margin(r = 6, unit = "mm")),
-    panel.grid         = element_blank(),
     panel.spacing.x    = unit(1, "mm"),
     plot.margin        = margin(-5, 1, 5, 1, "mm"),
     axis.title.x       = element_text(vjust = -3)
@@ -337,11 +320,7 @@ li_gdd_r2 <- li_gdd_fits[, .(Season, Treatment, Block, PlotID, r2)
 
 figS_LI_GDD_24 <- copy(predictions_gdd[Season == 2024])[cumGDD_DAE >= te, prediction := NA] |>
   ggplot(aes(cumGDD_DAE, prediction, color = Treatment)) +
-  geom_rect(
-    data = rect_gdd[Season == 2024],
-    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15, inherit.aes = FALSE, show.legend = FALSE
-  ) +
+  geom_treatment_rect(data = rect_gdd[Season == 2024], xmin = "xmin", xmax = "xmax") +
   geom_line() +
   geom_point(data = li_gdd_sum[Season == "2024"], aes(cumGDD_DAE, LI)) +
   geom_text(
@@ -349,8 +328,7 @@ figS_LI_GDD_24 <- copy(predictions_gdd[Season == 2024])[cumGDD_DAE >= te, predic
     aes(x = x_pos, y = y_pos, label = label),
     inherit.aes = FALSE, hjust = 0, size = floor(fontsize / ggplot2::.pt) - 1
   ) +
-  scale_color_manual(values = colors_temp, breaks = legend_order) +
-  scale_fill_manual(values = colors_temp, breaks = legend_order, guide = "none") +
+  scale_treatment_aes(c("colour", "fill")) +
   scale_x_continuous(
     name   = "Growing degree days from emergence (GDD, Tbase = 2°C)",
     limits = c(0, max_gdd), breaks = seq(0, max_gdd, 400)
@@ -360,12 +338,11 @@ figS_LI_GDD_24 <- copy(predictions_gdd[Season == 2024])[cumGDD_DAE >= te, predic
     limits = c(0, 1), breaks = seq(0, 1, 0.2)
   ) +
   facet_wrap(~PlotID, ncol = 3) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(
     legend.position   = "top",
     legend.key.size   = unit(15, "mm"),
     legend.background = element_blank(),
-    panel.grid        = element_blank(),
     panel.spacing.x   = unit(1, "mm"),
     plot.margin       = margin(1, 1, 0, 1, "mm")
   )
@@ -373,11 +350,7 @@ save_plot(figS_LI_GDD_24, "figS_LI_GDD_24", height = 6, width = 5)
 
 figS_LI_GDD_25 <- copy(predictions_gdd[Season == 2025])[cumGDD_DAE >= te, prediction := NA] |>
   ggplot(aes(cumGDD_DAE, prediction, color = Treatment)) +
-  geom_rect(
-    data = rect_gdd[Season == 2025],
-    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15, inherit.aes = FALSE, show.legend = FALSE
-  ) +
+  geom_treatment_rect(data = rect_gdd[Season == 2025], xmin = "xmin", xmax = "xmax") +
   geom_line() +
   geom_point(data = li_gdd_sum[Season == "2025"], aes(cumGDD_DAE, LI)) +
   geom_text(
@@ -385,8 +358,7 @@ figS_LI_GDD_25 <- copy(predictions_gdd[Season == 2025])[cumGDD_DAE >= te, predic
     aes(x = x_pos, y = y_pos, label = label),
     inherit.aes = FALSE, hjust = 0, size = floor(fontsize / ggplot2::.pt) - 1
   ) +
-  scale_color_manual(values = colors_temp, breaks = legend_order) +
-  scale_fill_manual(values = colors_temp, breaks = legend_order, guide = "none") +
+  scale_treatment_aes(c("colour", "fill")) +
   scale_x_continuous(
     name   = "Growing degree days from emergence (GDD, Tbase = 2°C)",
     limits = c(0, max_gdd), breaks = seq(0, max_gdd, 400)
@@ -396,12 +368,11 @@ figS_LI_GDD_25 <- copy(predictions_gdd[Season == 2025])[cumGDD_DAE >= te, predic
     limits = c(0, 1), breaks = seq(0, 1, 0.2)
   ) +
   facet_wrap(~PlotID, ncol = 3) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(
     legend.position   = "top",
     legend.key.size   = unit(15, "mm"),
     legend.background = element_blank(),
-    panel.grid        = element_blank(),
     panel.spacing.x   = unit(1, "mm"),
     plot.margin       = margin(0, 1, 0, 1, "mm")
   )
@@ -461,7 +432,6 @@ plot_rad_intcp[, .(mean_total = mean(total_MJ_m2),
 
 # ==============================================================================
 # PART 9: t2 and te in GDD and in calendar days (AC vs HTI)
-# Reports how many calendar days earlier the HTI canopy senesced.
 # ==============================================================================
 t2_te_gdd_summary <- li_gdd_params[
   Treatment %in% c("AC", "HTI"),

@@ -1,9 +1,5 @@
 # ==============================================================================
-# Constants and functions for 02.4_light_GDD_clean.R
-#
-# Self-contained: this is the only file that script sources. Extracted from
-# 00_setup.R, 00_equations_and_models.R, functions_nlme.R,
-# functions_logistic_fitting.R and functions_visualise.R.
+# Functions for 02.4_light_GDD_clean.R and other analysis scripts
 # ==============================================================================
 library(data.table)
 library(ggplot2)
@@ -11,43 +7,51 @@ library(emmeans)   # emmeans(), pairs() methods
 library(DEoptim)   # global search for curve starting values
 # also called via ::  — car, multcomp, minpack.lm
 
-# ==============================================================================
-# EXPERIMENTAL CONSTANTS
-# ==============================================================================
-planting_dates     <- list(`2024` = as.Date("2024-05-13"),
-                           `2025` = as.Date("2025-05-07"))
-emergence_date     <- list(`2024` = as.Date("2024-06-07"),
-                           `2025` = as.Date("2025-05-23"))
-leaf_removal_dates <- list(`2024` = as.Date("2024-09-02"),
-                           `2025` = as.Date("2025-08-18"))
-
-# Heating windows, converted to days after planting for the plot rectangles
-treatment_rect_dt <- data.table(
-  Season    = c(2024L, 2024L, 2025L, 2025L),
-  Treatment = c("HE", "HTI", "HTI", "HB"),
-  start     = as.Date(c("2024-06-07", "2024-06-28", "2025-06-13", "2025-07-12")),
-  end       = as.Date(c("2024-06-21", "2024-07-15", "2025-06-29", "2025-07-28"))
-)
-treatment_rect_dt[, ':='(
-  DAP_min = as.integer(start - planting_dates[[as.character(Season)]]),
-  DAP_max = as.integer(end   - planting_dates[[as.character(Season)]])
-), by = Season]
-treatment_rect_dt[, c("start", "end") := NULL]
-
-# ==============================================================================
-# PLOTTING THEME
-# ==============================================================================
-legend_order  <- c("AC", "HE", "HTI", "HB")
-colors_temp   <- c("AC" = "#000000", "HE" = "#314856",
-                   "HTI" = "#8B1C1C", "HB" = "#fd8700")
-linetype_temp <- c("AC" = "solid", "HE" = "dashed",
-                   "HTI" = "solid", "HB" = "dotdash")
-lw       <- 0.8
-fontsize <- 12
-
 save_plot <- function(plot, name, width = 7, height = 5, dpi = 300, format = "svg") {
   filename <- paste0("figures/", name, ".", format)
   ggsave(filename, plot = plot, width = width, height = height, dpi = dpi)
+}
+
+# ==============================================================================
+# SHARED PLOT ELEMENTS (treatment shading, color/linetype/shape scales, theme)
+# ==============================================================================
+
+#' Treatment-period shading rectangle
+#'
+#' @param data data.table with Season/Treatment/xmin/xmax columns (default treatment_rect_dt)
+#' @param xmin,xmax character - column names to use for the rectangle bounds
+#' @param show.legend logical - passed through to geom_rect()
+geom_treatment_rect <- function(data = treatment_rect_dt, xmin = "DAP_min", xmax = "DAP_max",
+                                 show.legend = FALSE) {
+  geom_rect(
+    data = data,
+    mapping = aes(xmin = .data[[xmin]], xmax = .data[[xmax]], ymin = -Inf, ymax = Inf, fill = Treatment),
+    alpha = 0.15, inherit.aes = FALSE, show.legend = show.legend
+  )
+}
+
+#' Treatment color/fill/linetype/shape scales sharing the same palette and level order
+#'
+#' @param aesthetics character vector - any of "colour"/"color", "fill", "linetype", "shape"
+#' @param fill_guide guide argument passed to scale_fill_manual() (e.g. "none" or "legend")
+#' @return list of ggplot scale objects to add with `+`
+scale_treatment_aes <- function(aesthetics = c("colour", "linetype", "shape"), fill_guide = "none") {
+  scales <- list()
+  if (any(c("colour", "color") %in% aesthetics))
+    scales <- c(scales, list(scale_color_manual(values = colors_temp, breaks = legend_order)))
+  if ("fill" %in% aesthetics)
+    scales <- c(scales, list(scale_fill_manual(values = colors_temp, breaks = legend_order, guide = fill_guide)))
+  if ("linetype" %in% aesthetics)
+    scales <- c(scales, list(scale_linetype_manual(values = linetype_temp, breaks = legend_order)))
+  if ("shape" %in% aesthetics)
+    scales <- c(scales, list(scale_shape_manual(values = point_shape, breaks = legend_order)))
+  scales
+}
+
+#' Shared base theme: theme_bw() with the project font and no gridlines
+theme_potato <- function(base_size = fontsize) {
+  theme_bw(base_size = base_size, base_family = "Times New Roman") +
+    theme(panel.grid = element_blank())
 }
 
 # ==============================================================================

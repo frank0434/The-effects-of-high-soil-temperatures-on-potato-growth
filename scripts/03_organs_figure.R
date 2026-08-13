@@ -1,15 +1,12 @@
 # ==============================================================================
 # Dry matter accumulation by organ — timeseries figure (Fig. 3 / p_organs_anno)
 #
-# Figure  p_organs_anno   leaf / stem / tuber dry weight vs DAP, by season,
-#                         with treatment-period shading and significance
-#                         asterisks at DAP 56/83 (2025)
-#
 # Input   data/drymatter_organs_long.csv   tidy long-format dry matter data
 #                                           (Season, Block, Treatment, PlotID,
 #                                           Date, DAP, Organ, value [g/m^2])
 # ==============================================================================
 source("scripts/00_setup.R")
+source("scripts/functions.R")
 library(ggh4x)
 
 
@@ -63,28 +60,20 @@ p_organs <- dma_summary_plot[Organ != "Leaf:Stem" & Organ != "Dead_canopy"] |>
   ggplot(aes(DAP, mean, linetype = Treatment, shape = Treatment)) +
   geom_errorbar(aes(x = DAP, y = mean, ymin = mean - se, ymax = mean + se),
                 width = ps, inherit.aes = FALSE) +
-  geom_rect(
-    data = treatments_DAP_arrows[
-      , .(.N, xmin = min(DAP), xmax = max(DAP)), by = .(Season, Treatment)],
-    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = Treatment),
-    alpha = 0.15, inherit.aes = FALSE
-  ) +
+  geom_treatment_rect() +
   scale_fill_manual(values = colors_temp, guide = "none") +
   geom_line(aes(color = Treatment), linewidth = lw - 0.3) +
   geom_point(size = ps, alpha = 0.7) +
-  scale_color_manual(values = colors_temp,     limits = legend_order) +
-  scale_linetype_manual(values = linetype_temp, limits = legend_order) +
-  scale_shape_manual(values = point_shape,     limits = legend_order) +
+  scale_treatment_aes(c("colour", "linetype", "shape")) +
   facet_grid(Organ ~ Season, scales = "free_y") +
   scale_x_continuous(name = "Days after planting", expand = c(0, 0), limits = c(0, 120)) +
   scale_y_continuous(name = expression(Dry ~ weight ~ (g ~ m^{-2}))) +
-  theme_bw(base_size = fontsize, base_family = "Times New Roman") +
+  theme_potato() +
   theme(
     legend.position  = "top",
     panel.spacing.y  = unit(0, "mm"),
     legend.key.width = grid::unit(15, "mm"),
     legend.title     = element_text(margin = margin(r = 15)),
-    panel.grid       = element_blank(),
     panel.spacing.x  = unit(7, "mm")
   )
 

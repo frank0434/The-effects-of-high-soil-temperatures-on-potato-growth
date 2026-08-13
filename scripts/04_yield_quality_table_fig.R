@@ -8,8 +8,8 @@
 #         data/weibull_fit_results_2025.csv    per-plot Weibull shape/scale
 #         data/frying_colour_data.csv          per-plot frying colour index
 # ==============================================================================
-source("scripts/functions.R")
 source("scripts/00_setup.R")
+source("scripts/functions.R")
 # ==============================================================================
 # HELPERS (mean +/- SE formatting and Tukey CLD significance letters)
 # ==============================================================================
