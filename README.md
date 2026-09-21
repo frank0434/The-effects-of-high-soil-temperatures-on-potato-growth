@@ -1,5 +1,7 @@
 # The Effects of High Soil Temperatures on Potato Growth
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21921404.svg)](https://doi.org/10.5281/zenodo.21921404)
+
 Repository accompanying the manuscript:
 
 > *The Effects of High Soil Temperatures on Potato Growth*
